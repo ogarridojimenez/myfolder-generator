@@ -35,11 +35,17 @@ to quickly create a Cobra application.`,
 			"internal/core",
 			"internal/core/domain",
 			"internal/core/services",
+			"internal/core/services/domainEntity",
 			"internal/core/ports",
 			"internal/infrastructure",
 			"internal/infrastructure/handlers",
+			"internal/infrastructure/handlers/domainEntity",
 			"internal/infrastructure/repositories",
+			"internal/infrastructure/repositories/db",
+			"internal/infrastructure/repositories/db/domainEntity",
 			"internal/config",
+			"pkg",
+			"pkg/DB",
 		}
 
 		for _, folder := range folders {
@@ -60,37 +66,186 @@ to quickly create a Cobra application.`,
  func main() {
 	 fmt.Println("Hola, mundo!")
  }`,
-			"internal/core/domain/user.go": `package domain
+			"internal/core/domain/domainEntity.go": `package domain
  
- type User struct {
+ type domainEntity struct {
 	 ID    string
-	 Name  string
-	 Email string
- }`,
-			"internal/core/ports/user_repository.go": `package ports
+  }`,
+			"internal/core/ports/domainEntity.go": `package ports
  
  import "github.com/yourusername/yourproject/internal/core/domain"
  
- type UserRepository interface {
-	 Create(user *domain.User) error
-	 FindByID(id string) (*domain.User, error)
-	 Update(user *domain.User) error
+ type domainEntityService interface {
+	 Create(domainEntity *domain.domainEntity) error
+	 Get(id string) (*domain.domainEntity, error)
+	 Update(domainEntity *domain.domainEntity) error
+	 Delete(id string) error
+ }
+	 type domainEntityRepository interface {
+	 Insert(domainEntity *domain.domainEntity) error
+	 FindByID(id string) (*domain.domainEntity, error)
+	 Update(domainEntity *domain.domainEntity) error
 	 Delete(id string) error
  }`,
-			"internal/core/services/user_service.go": `package services
+			"internal/core/services/domainEntity/service.go": `package domainEntity
+ 
+ import (
+	  "github.com/yourusername/yourproject/internal/core/ports"
+ )
+ 
+ type Service struct {
+	 Repo ports.domainEntityRepository
+ }
+ 
+ func NewdomainEntityService(repo ports.domainEntityRepository) *Service {
+	 return &Service{Repo: repo}
+ }`,
+			"internal/core/services/domainEntity/create.go": `package domainEntity
  
  import (
 	 "github.com/yourusername/yourproject/internal/core/domain"
-	 "github.com/yourusername/yourproject/internal/core/ports"
+	 "fmt"
+	"log"
  )
  
- type UserService struct {
-	 repo ports.UserRepository
- }
+ func (s *Service) Create(domainEntity *domain.domainEntity) (err error) {
+	
+	//TODO: save the repo
+	 err = s.Repo.Insert(domainEntity)
+	 if err != nil {
+		log.Println(err.Error())
+		return fmt.Errorf("error creating domainEntity:%w", err)
+	 }
+	return nil
+	}`,
+			"internal/core/services/domainEntity/delete.go": `package domainEntity
  
- func NewUserService(repo ports.UserRepository) *UserService {
-	 return &UserService{repo: repo}
- }`,
+ import (
+	 "github.com/yourusername/yourproject/internal/core/domain"
+	 "fmt"
+	 "log"
+	 
+ )
+ // Delete domainEntity by id
+ func (s *Service) Delete(id string) (err error) {
+	
+	err = s.Repo.Delete(id)
+	if err != nil {
+	    log.Println(err.Error())	
+	    return fmt.Errorf("Error deleting domainEntity:%w",err)
+	}
+	return nil
+	}`,
+			"internal/core/services/domainEntity/get.go": `package domainEntity
+ 
+ import (
+	 "github.com/yourusername/yourproject/internal/core/domain"
+	 "fmt"
+	 "log"
+	 "errors"
+ )
+ // Get domainEntity by id
+ func (s *Service) Get(id string) (domainEntity *domain.domainEntity, err error) {
+	
+	if id == "" {
+		return nil, errors.New("id is required")
+	}
+
+	domainEntity, err = s.Repo.Get(id)
+	if err != nil {
+		log.Println(err.Error())
+		return nil, fmt.Errorf("unexpected error getting domainEntity: %w", err)
+	}
+
+	return domainEntity, nil
+	}`,
+			"internal/infrastructure/handlers/domainEntity/handlers.go": `package domainEntity
+ 
+ import "github.com/yourusername/yourproject/internal/core/ports"
+	 
+ 
+ type Handler struct {
+	domainEntityService ports.domainEntityService
+}`,
+			"internal/infrastructure/handlers/domainEntity/create.go": `package domainEntity
+ 
+import (
+	"errors"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/yourusername/yourproject/internal/core/domain"
+)
+	
+
+func (h Handler) CreatedomainEntity(c *gin.Context) {
+	//TODO: funciones de un handlers
+	//TODO: validación
+	//TODO: 1- traducir un request
+	//TODO: 2- consumir un servicio
+	//TODO: 3- traducir un response
+
+	//TODO: Paso # 1 - Traducir un request a un formato que puedas usar como input para tu servicio
+	var domainEntityCreateParams domain.domainEntity
+	if err := c.BindJSON(&pdomainEntityCreateParams); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	//TODO: =============Paso # 2 Consumir el servicio =====================
+
+	insertedId, err := h.domainEntityService.Create(domainEntityCreateParams)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ooops!"})
+		return 
+	}
+	//TODO: ===============================
+
+	//TODO: Paso # 3 traducción de la respuesta
+	c.JSON(200, gin.H{"domainEntity_id": insertedId})
+
+}`, "internal/infrastructure/handlers/domainEntity/delete.go": `package domainEntity
+ 
+import (
+	
+	"net/http"
+	"log"
+	"github.com/gin-gonic/gin"
+	
+)
+	
+
+func (h Handler) DeletedomainEntity(c *gin.Context) {
+	id := c.Param("id")
+
+	err := h.domainEntityService.Delete(id)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}`, "internal/infrastructure/handlers/domainEntity/get.go": `package domainEntity
+ 
+import (
+	
+	"log"
+	"github.com/gin-gonic/gin"
+	
+)
+	
+
+func (h Handler) GetdomainEntity(c *gin.Context) {
+	domainEntityIdParam := c.Param("id")
+	domainEntity, err := h.domainEntityService.Get(domainEntityIdParam)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	c.JSON(200, domainEntity)
+}`,
 		}
 
 		for filePath, content := range files {
